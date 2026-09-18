@@ -1,0 +1,106 @@
+import { CreateKrsForm, AdvancedFilterPayload } from '../types';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+export interface FetchParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  quickStatus?: string;
+  quickSemester?: string;
+  sort?: string;
+  advancedFilter?: AdvancedFilterPayload | null;
+}
+
+export const api = {
+  async getEnrollments(params: FetchParams) {
+    const url = new URL(`${API_BASE_URL}/enrollments`);
+    url.searchParams.set('page', params.page.toString());
+    url.searchParams.set('pageSize', params.pageSize.toString());
+
+    if (params.search) url.searchParams.set('search', params.search);
+    if (params.quickStatus && params.quickStatus !== 'ALL') url.searchParams.set('quickStatus', params.quickStatus);
+    if (params.quickSemester && params.quickSemester !== 'ALL') url.searchParams.set('quickSemester', params.quickSemester);
+    if (params.sort) url.searchParams.set('sort', params.sort);
+    if (params.advancedFilter && params.advancedFilter.conditions.length > 0) {
+      url.searchParams.set('advancedFilter', JSON.stringify(params.advancedFilter));
+    }
+
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || `Gagal memuat data: ${res.statusText}`);
+    }
+    return res.json();
+  },
+
+  async createEnrollment(form: CreateKrsForm) {
+    const payload = {
+      student: {
+        nim: form.nim,
+        name: form.studentName,
+        email: form.studentEmail
+      },
+      course: {
+        code: form.courseCode,
+        name: form.courseName,
+        credits: Number(form.credits)
+      },
+      enrollment: {
+        academic_year: form.academicYear,
+        semester: form.semester,
+        status: form.status
+      }
+    };
+
+    const res = await fetch(`${API_BASE_URL}/enrollments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal menyimpan KRS');
+    }
+    return data;
+  },
+
+  async updateEnrollment(id: string | number, updates: any) {
+    const res = await fetch(`${API_BASE_URL}/enrollments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal memperbarui KRS');
+    }
+    return data;
+  },
+
+  async deleteEnrollment(id: string | number) {
+    const res = await fetch(`${API_BASE_URL}/enrollments/${id}`, {
+      method: 'DELETE'
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal menghapus KRS');
+    }
+    return data;
+  },
+
+  getExportUrl(params: FetchParams) {
+    const url = new URL(`${API_BASE_URL}/enrollments/export`);
+    if (params.search) url.searchParams.set('search', params.search);
+    if (params.quickStatus && params.quickStatus !== 'ALL') url.searchParams.set('quickStatus', params.quickStatus);
+    if (params.quickSemester && params.quickSemester !== 'ALL') url.searchParams.set('quickSemester', params.quickSemester);
+    if (params.sort) url.searchParams.set('sort', params.sort);
+    if (params.advancedFilter && params.advancedFilter.conditions.length > 0) {
+      url.searchParams.set('advancedFilter', JSON.stringify(params.advancedFilter));
+    }
+    return url.toString();
+  }
+};
