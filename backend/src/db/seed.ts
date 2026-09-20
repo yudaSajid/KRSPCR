@@ -99,9 +99,9 @@ export async function runSeeder(targetEnrollments = 5000000) {
         SELECT 
           s.student_id,
           c.course_id,
-          (ARRAY['2021/2022', '2022/2023', '2023/2024', '2024/2025', '2025/2026'])[1 + (term / 2)::int] AS academic_year,
-          (ARRAY['GANJIL', 'GENAP'])[1 + (term % 2)::int] AS semester,
-          (ARRAY['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'])[1 + (x % 4)::int] AS status,
+          (ARRAY['2021/2022', '2022/2023', '2023/2024', '2024/2025', '2025/2026'])[1 + ((term / 2)::int % 5)] AS academic_year,
+          (ARRAY['GANJIL', 'GENAP'])[1 + ((term % 2)::int % 2)] AS semester,
+          (ARRAY['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'])[1 + ((x % 4)::int % 4)] AS status,
           NOW() - ((x % 365)::text || ' days')::interval AS created_at,
           NOW() AS updated_at
         FROM (
