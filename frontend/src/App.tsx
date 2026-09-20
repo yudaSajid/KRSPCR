@@ -8,7 +8,8 @@ import { api } from './services/api';
 import { EnrollmentRecord, PaginationMeta, AdvancedFilterPayload, CreateKrsForm } from './types';
 import { 
   Search, Plus, Download, SlidersHorizontal, RefreshCw, 
-  CheckCircle, AlertCircle, X, ShieldAlert 
+  CheckCircle, AlertCircle, X, ShieldAlert, Database, CheckCircle2,
+  Clock, BookOpen, Filter, Sparkles 
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -47,7 +48,7 @@ export const App: React.FC = () => {
     }, 4500);
   };
 
-  // 1. Debounce Search Input (350ms) Sesuai Bagian 4.4 & TS-08
+  // 1. Debounce Search Input (350ms)
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchInput);
@@ -76,7 +77,7 @@ export const App: React.FC = () => {
         setPagination(res.pagination);
       }
     } catch (err: any) {
-      showToast('error', err.message || 'Gagal terhubung ke server backend');
+      showToast('error', err.message || 'Gagal memuat data dari database');
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ export const App: React.FC = () => {
       showToast('success', res.message || 'KRS berhasil ditambahkan ke 3 tabel secara atomik!');
       loadData();
     } catch (err: any) {
-      showToast('error', err.message || 'Gagal menyimpan data KRS');
+      showToast('error', err.message || 'Gagal menyimpan formulir KRS');
       throw err;
     }
   };
@@ -104,7 +105,7 @@ export const App: React.FC = () => {
       showToast('success', res.message || 'Data KRS berhasil diperbarui!');
       loadData();
     } catch (err: any) {
-      showToast('error', err.message || 'Gagal mengupdate KRS');
+      showToast('error', err.message || 'Gagal memperbarui data KRS');
       throw err;
     }
   };
@@ -133,31 +134,50 @@ export const App: React.FC = () => {
       advancedFilter
     });
 
-    showToast('success', 'Memulai pengunduhan data streaming CSV...');
+    showToast('success', 'Mengunduh stream CSV dataset dari server...');
     window.open(exportUrl, '_blank');
   };
 
+  // Cek apakah ada filter yang sedang aktif
+  const hasActiveFilters = Boolean(
+    debouncedSearch ||
+    quickStatus !== 'ALL' ||
+    quickSemester !== 'ALL' ||
+    (advancedFilter && advancedFilter.conditions.length > 0)
+  );
+
+  const resetAllFilters = () => {
+    setSearchInput('');
+    setDebouncedSearch('');
+    setQuickStatus('ALL');
+    setQuickSemester('ALL');
+    setAdvancedFilter(null);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const advancedCount = advancedFilter?.conditions?.length || 0;
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100/70">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-sky-50/20 to-slate-100/90 text-slate-800">
       <Navbar />
 
       {/* Floating Toast Notification */}
       {toast && (
         <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-top-4 duration-300">
           <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border text-sm font-medium ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold ${
               toast.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border-rose-200'
+                ? 'bg-emerald-50/95 text-emerald-900 border-emerald-300 shadow-emerald-500/10'
+                : 'bg-rose-50/95 text-rose-900 border-rose-300 shadow-rose-500/10'
             }`}
           >
             {toast.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-rose-600" />
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
             )}
             <span>{toast.message}</span>
-            <button onClick={() => setToast(null)} className="ml-2 hover:opacity-75">
+            <button onClick={() => setToast(null)} className="ml-2 hover:opacity-75 p-1">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -165,43 +185,122 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Banner Dashboard Mahasiswa */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 tracking-tight">Manajemen Rencana Studi (KRS)</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Kelola pengambilan mata kuliah mahasiswa dengan pencarian instan dan responsif pada 5.000.000 baris data.
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6">
+        {/* Metric / Stat Overview Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Total Dataset */}
+          <div className="bg-white/80 backdrop-blur-sm p-4 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Record</span>
+              <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                <Database className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-xl sm:text-2xl font-black text-slate-900 mt-2 font-mono">
+              {pagination.totalItems.toLocaleString('id-ID')}
+            </p>
+            <p className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
+              <span>●</span> Indeks Server-Side Siap
             </p>
           </div>
 
+          {/* Card 2: Halaman Aktif */}
+          <div className="bg-white/80 backdrop-blur-sm p-4 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Halaman Aktif</span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <BookOpen className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-xl sm:text-2xl font-black text-slate-900 mt-2 font-mono">
+              {pagination.page} <span className="text-xs font-normal text-slate-400">/ {pagination.totalPages || 1}</span>
+            </p>
+            <p className="text-[11px] text-slate-500 font-medium mt-1">
+              Limit {pagination.pageSize} baris/halaman
+            </p>
+          </div>
+
+          {/* Card 3: Semester Aktif */}
+          <div className="bg-white/80 backdrop-blur-sm p-4 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Periode KRS</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-lg sm:text-xl font-extrabold text-slate-900 mt-2">
+              2025/2026
+            </p>
+            <p className="text-[11px] text-indigo-600 font-semibold mt-1">
+              Semester Ganjil Reguler
+            </p>
+          </div>
+
+          {/* Card 4: Filter Status */}
+          <div className="bg-white/80 backdrop-blur-sm p-4 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status Query</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-lg sm:text-xl font-extrabold text-slate-900 mt-2">
+              {hasActiveFilters ? 'Filter Terpasang' : 'Semua Data'}
+            </p>
+            <p className="text-[11px] text-slate-500 font-medium mt-1">
+              {advancedCount > 0 ? `${advancedCount} kriteria lanjutan` : 'Mode pencarian normal'}
+            </p>
+          </div>
+        </div>
+
+        {/* Action Header Banner */}
+        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Daftar Pengambilan Mata Kuliah (KRS)</h2>
+              <span className="text-[11px] font-bold bg-sky-100 text-sky-800 px-2.5 py-0.5 rounded-full">
+                Live Data
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1 max-w-xl">
+              Sistem KRS berkapasitas 5 juta baris dengan live search real-time, pengurutan fleksibel, dan ekspor streaming.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Tombol Advanced Filter */}
             <button
               onClick={() => setIsAdvancedFilterOpen(true)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                advancedFilter && advancedFilter.conditions.length > 0
-                  ? 'bg-sky-50 text-sky-700 border-sky-300 ring-2 ring-sky-200'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold border transition-all ${
+                advancedCount > 0
+                  ? 'bg-sky-50 text-sky-700 border-sky-300 ring-2 ring-sky-200/60 shadow-xs'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-slate-400'
               }`}
             >
-              <SlidersHorizontal className="w-4 h-4" />
-              <span>Advanced Filter</span>
-              {advancedFilter && advancedFilter.conditions.length > 0 && (
-                <span className="w-2 h-2 rounded-full bg-sky-600"></span>
+              <SlidersHorizontal className="w-4 h-4 text-sky-600" />
+              <span>Filter Lanjutan</span>
+              {advancedCount > 0 && (
+                <span className="bg-sky-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black">
+                  {advancedCount}
+                </span>
               )}
             </button>
 
+            {/* Tombol Export CSV */}
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs transition-colors"
+              title="Unduh seluruh data sesuai filter saat ini"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400 transition-all shadow-2xs"
             >
               <Download className="w-4 h-4 text-slate-600" />
-              <span>Export CSV (5M)</span>
+              <span>Export CSV</span>
             </button>
 
+            {/* Tombol Tambah KRS */}
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-md shadow-sky-200 transition-all hover:scale-[1.02]"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-sky-600 via-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 shadow-md shadow-sky-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Plus className="w-4 h-4" />
               <span>Tambah KRS</span>
@@ -209,74 +308,131 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Controls & Quick Filters (TS-07 & TS-08) */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Live Search (3 Kolom: NIM, Nama, Kode MK) */}
-          <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari NIM, Nama Mahasiswa, atau Kode MK..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full text-xs pl-9 pr-9 py-2.5 rounded-xl border border-slate-300 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-200 transition-all"
-            />
-            {searchInput && (
+        {/* Filter Controls & Live Search Bar */}
+        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3.5">
+            {/* Live Search Input with Debounce */}
+            <div className="relative w-full md:w-96">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari NIM, Nama Mahasiswa, atau Kode MK..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full text-xs pl-10 pr-10 py-3 rounded-2xl border border-slate-300 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-all"
+              />
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput('')}
+                  title="Hapus kata kunci pencarian"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Filters Group */}
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+              {/* Quick Status */}
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200/80">
+                <span className="font-semibold text-slate-500">Status:</span>
+                <select
+                  value={quickStatus}
+                  onChange={(e) => {
+                    setQuickStatus(e.target.value);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">Semua Status</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="SUBMITTED">Diajukan</option>
+                  <option value="APPROVED">Disetujui</option>
+                  <option value="REJECTED">Ditolak</option>
+                </select>
+              </div>
+
+              {/* Quick Semester */}
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200/80">
+                <span className="font-semibold text-slate-500">Semester:</span>
+                <select
+                  value={quickSemester}
+                  onChange={(e) => {
+                    setQuickSemester(e.target.value);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">Semua Semester</option>
+                  <option value="GANJIL">Ganjil</option>
+                  <option value="GENAP">Genap</option>
+                </select>
+              </div>
+
+              {/* Refresh Button */}
               <button
-                onClick={() => setSearchInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                onClick={() => loadData()}
+                title="Segarkan Data"
+                className="p-2.5 text-slate-500 hover:text-sky-600 hover:bg-slate-50 rounded-2xl border border-slate-200 transition-colors shadow-2xs"
               >
-                <X className="w-3.5 h-3.5" />
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-sky-600' : ''}`} />
               </button>
-            )}
+            </div>
           </div>
 
-          {/* Quick Filters */}
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Quick Status */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-600">
-              <span className="font-semibold">Status:</span>
-              <select
-                value={quickStatus}
-                onChange={(e) => {
-                  setQuickStatus(e.target.value);
-                  setPagination((prev) => ({ ...prev, page: 1 }));
-                }}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200"
-              >
-                <option value="ALL">Semua Status</option>
-                <option value="DRAFT">Draft</option>
-                <option value="SUBMITTED">Diajukan</option>
-                <option value="APPROVED">Disetujui</option>
-                <option value="REJECTED">Ditolak</option>
-              </select>
-            </div>
+          {/* Active Filter Chips Bar (Jika ada filter yang aktif) */}
+          {hasActiveFilters && (
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-[11px] font-bold text-slate-500 mr-1 flex items-center gap-1">
+                <Filter className="w-3 h-3 text-sky-600" />
+                Filter Aktif:
+              </span>
 
-            {/* Quick Semester */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-600">
-              <span className="font-semibold">Semester:</span>
-              <select
-                value={quickSemester}
-                onChange={(e) => {
-                  setQuickSemester(e.target.value);
-                  setPagination((prev) => ({ ...prev, page: 1 }));
-                }}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200"
-              >
-                <option value="ALL">Semua Semester</option>
-                <option value="GANJIL">Ganjil</option>
-                <option value="GENAP">Genap</option>
-              </select>
-            </div>
+              {debouncedSearch && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-50 text-sky-800 border border-sky-200 font-medium">
+                  Cari: <strong className="font-bold">"{debouncedSearch}"</strong>
+                  <button onClick={() => { setSearchInput(''); setDebouncedSearch(''); }} className="hover:text-sky-950">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
 
-            <button
-              onClick={() => loadData()}
-              title="Refresh Data"
-              className="p-2 text-slate-500 hover:text-sky-600 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-sky-600' : ''}`} />
-            </button>
-          </div>
+              {quickStatus !== 'ALL' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 text-blue-800 border border-blue-200 font-medium">
+                  Status: <strong className="font-bold">{quickStatus}</strong>
+                  <button onClick={() => setQuickStatus('ALL')} className="hover:text-blue-950">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {quickSemester !== 'ALL' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-800 border border-indigo-200 font-medium">
+                  Semester: <strong className="font-bold">{quickSemester}</strong>
+                  <button onClick={() => setQuickSemester('ALL')} className="hover:text-indigo-950">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {advancedCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 text-purple-800 border border-purple-200 font-medium">
+                  Filter Lanjutan: <strong className="font-bold">{advancedCount} Kriteria (Mode {advancedFilter?.logic})</strong>
+                  <button onClick={() => setAdvancedFilter(null)} className="hover:text-purple-950">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              <button
+                onClick={resetAllFilters}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline ml-1"
+              >
+                Hapus Semua
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Data Table Component */}
@@ -299,13 +455,14 @@ export const App: React.FC = () => {
         />
       </main>
 
-      {/* Modals */}
+      {/* Modal Tambah KRS */}
       <CreateModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSubmit={handleCreate}
       />
 
+      {/* Modal Edit KRS */}
       <EditModal
         isOpen={isEditOpen}
         enrollment={selectedRecord}
@@ -316,6 +473,7 @@ export const App: React.FC = () => {
         onSubmit={handleUpdate}
       />
 
+      {/* Modal Advanced Filter */}
       <AdvancedFilterModal
         isOpen={isAdvancedFilterOpen}
         initialFilter={advancedFilter}
@@ -326,29 +484,29 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* Delete Confirmation Modal (TS-12) */}
+      {/* Modal Konfirmasi Hapus (Soft Delete) */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 mx-auto flex items-center justify-center">
-              <ShieldAlert className="w-6 h-6" />
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 mx-auto flex items-center justify-center border border-rose-100 shadow-sm">
+              <ShieldAlert className="w-7 h-7" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-800">Hapus Rencana Studi?</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Data enrollment ini akan di-soft delete dan disembunyikan dari tabel. Data mahasiswa dan mata kuliah induk tetap aman.
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                Data enrollment ini akan di-soft delete dan disembunyikan dari tabel. Data master mahasiswa dan mata kuliah induk tetap terjaga keamanannya.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex items-center justify-center gap-2.5 pt-2">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
               >
                 Batal
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-md transition-colors"
+                className="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-500/20 transition-all"
               >
                 Ya, Hapus Data
               </button>

@@ -23,7 +23,7 @@ export interface PaginationMeta {
 export interface FilterCondition {
   column: string;
   operator: 'contains' | 'startsWith' | 'equal' | 'between' | 'in';
-  value: string;
+  value: string | number | string[] | any;
 }
 
 export interface AdvancedFilterPayload {
