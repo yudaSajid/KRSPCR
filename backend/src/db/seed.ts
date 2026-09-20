@@ -10,16 +10,24 @@ export async function runSeeder(targetEnrollments = 5000000) {
     console.log(`🎯 Target enrollments: ${targetEnrollments.toLocaleString('id-ID')} baris`);
     console.log(`======================================================\n`);
 
+    try {
+      await client.query("SET experimental_enable_temp_tables = 'on';");
+    } catch {}
+
     console.log('⏳ Mempersiapkan data master students (50.000 data)...');
-    await client.query(`
-      INSERT INTO students (nim, name, email)
-      SELECT 
-        LPAD((10000000 + s)::text, 10, '0') AS nim,
-        ('Mahasiswa ' || s) AS name,
-        ('mhs' || s || '@kampus.ac.id') AS email
-      FROM generate_series(1, 50000) s
-      ON CONFLICT (nim) DO NOTHING;
-    `);
+    for (let sBatch = 0; sBatch < 5; sBatch++) {
+      const startS = sBatch * 10000 + 1;
+      const endS = (sBatch + 1) * 10000;
+      await client.query(`
+        INSERT INTO students (nim, name, email)
+        SELECT 
+          LPAD((10000000 + s)::text, 10, '0') AS nim,
+          ('Mahasiswa ' || s) AS name,
+          ('mhs' || s || '@kampus.ac.id') AS email
+        FROM generate_series(${startS}, ${endS}) s
+        ON CONFLICT (nim) DO NOTHING;
+      `);
+    }
     const studentCountRes = await client.query('SELECT COUNT(*) FROM students');
     const totalStudents = Number(studentCountRes.rows[0].count);
     console.log(`✅ Data students siap: ${totalStudents.toLocaleString('id-ID')} baris.`);
@@ -40,28 +48,23 @@ export async function runSeeder(targetEnrollments = 5000000) {
 
     console.log('⏳ Mempersiapkan sequence mapping index...');
     await client.query(`
-      DROP TABLE IF EXISTS student_seq;
-      DROP TABLE IF EXISTS course_seq;
-
-      CREATE TEMP TABLE student_seq (
+      CREATE TEMP TABLE IF NOT EXISTS student_seq (
         seq_id INT PRIMARY KEY, 
-        student_id BIGINT, 
-        student_nim VARCHAR(20), 
-        student_name VARCHAR(100)
+        student_id BIGINT
       );
-      INSERT INTO student_seq (seq_id, student_id, student_nim, student_name)
-      SELECT (ROW_NUMBER() OVER (ORDER BY id) - 1)::int, id, nim, name
+      TRUNCATE student_seq;
+      INSERT INTO student_seq (seq_id, student_id)
+      SELECT (ROW_NUMBER() OVER (ORDER BY id) - 1)::int, id
       FROM students
       LIMIT 50000;
 
-      CREATE TEMP TABLE course_seq (
+      CREATE TEMP TABLE IF NOT EXISTS course_seq (
         seq_id INT PRIMARY KEY, 
-        course_id BIGINT, 
-        course_code VARCHAR(20), 
-        course_name VARCHAR(120)
+        course_id BIGINT
       );
-      INSERT INTO course_seq (seq_id, course_id, course_code, course_name)
-      SELECT (ROW_NUMBER() OVER (ORDER BY id) - 1)::int, id, code, name
+      TRUNCATE course_seq;
+      INSERT INTO course_seq (seq_id, course_id)
+      SELECT (ROW_NUMBER() OVER (ORDER BY id) - 1)::int, id
       FROM courses
       LIMIT 500;
     `);
@@ -77,9 +80,9 @@ export async function runSeeder(targetEnrollments = 5000000) {
       return;
     }
 
-    console.log(`⏳ Memulai pengisian ${needed.toLocaleString('id-ID')} data enrollments (batching per 100.000 baris)...`);
+    console.log(`⏳ Memulai pengisian ${needed.toLocaleString('id-ID')} data enrollments (batching per 25.000 baris)...`);
 
-    const batchSize = 100000;
+    const batchSize = 25000;
     const totalBatches = Math.ceil(needed / batchSize);
 
     for (let b = 0; b < totalBatches; b++) {
@@ -90,35 +93,29 @@ export async function runSeeder(targetEnrollments = 5000000) {
       await client.query(`
         INSERT INTO enrollments (
           student_id, course_id, 
-          student_nim, student_name, 
-          course_code, course_name, 
           academic_year, semester, status, 
           created_at, updated_at
         )
         SELECT 
           s.student_id,
           c.course_id,
-          s.student_nim,
-          s.student_name,
-          c.course_code,
-          c.course_name,
-          (ARRAY['2021/2022', '2022/2023', '2023/2024', '2024/2025', '2025/2026'])[1 + (term / 2)] AS academic_year,
-          (ARRAY['GANJIL', 'GENAP'])[1 + (term % 2)] AS semester,
-          (ARRAY['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'])[1 + (x % 4)] AS status,
-          NOW() - ((x % 365) || ' days')::interval AS created_at,
+          (ARRAY['2021/2022', '2022/2023', '2023/2024', '2024/2025', '2025/2026'])[1 + (term / 2)::int] AS academic_year,
+          (ARRAY['GANJIL', 'GENAP'])[1 + (term % 2)::int] AS semester,
+          (ARRAY['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'])[1 + (x % 4)::int] AS status,
+          NOW() - ((x % 365)::text || ' days')::interval AS created_at,
           NOW() AS updated_at
         FROM (
           SELECT 
-            (${offsetMultiplier} + i - 1) AS x,
-            ((${offsetMultiplier} + i - 1) % 50000) AS student_seq_id,
-            (((${offsetMultiplier} + i - 1) / 50000) / 10) AS term,
+            (${offsetMultiplier} + i - 1)::int AS x,
+            ((${offsetMultiplier} + i - 1) % 50000)::int AS student_seq_id,
+            ((((${offsetMultiplier} + i - 1) / 50000)::int) / 10)::int AS term,
             (
               (
                 ((${offsetMultiplier} + i - 1) % 50000) * 37 
-                + (((${offsetMultiplier} + i - 1) / 50000) / 10) * 10 
-                + (((${offsetMultiplier} + i - 1) / 50000) % 10)
+                + ((((${offsetMultiplier} + i - 1) / 50000)::int) / 10) * 10 
+                + (((${offsetMultiplier} + i - 1) / 50000)::int % 10)
               ) % 500
-            ) AS course_seq_id
+            )::int AS course_seq_id
           FROM generate_series(1, ${currentBatchCount}) i
         ) gen
         JOIN student_seq s ON s.seq_id = gen.student_seq_id
@@ -153,11 +150,5 @@ export async function runSeeder(targetEnrollments = 5000000) {
 }
 
 if (require.main === module) {
-  let target = 5000000;
-  const countArg = process.argv.find(arg => arg.startsWith('--count='));
-  if (countArg) {
-    const val = parseInt(countArg.split('=')[1], 10);
-    if (!isNaN(val) && val > 0) target = val;
-  }
-  runSeeder(target);
+  runSeeder();
 }

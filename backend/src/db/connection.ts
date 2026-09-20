@@ -7,7 +7,9 @@ const rawConnectionString = process.env.DATABASE_URL || 'postgresql://postgres:p
 
 const isCloud = process.env.DATABASE_SSL === 'true' || 
   rawConnectionString.includes('neon.tech') || 
-  rawConnectionString.includes('supabase.co');
+  rawConnectionString.includes('supabase.co') ||
+  rawConnectionString.includes('cockroachlabs.cloud') ||
+  rawConnectionString.includes(':26257');
 
 let cleanConnectionString = rawConnectionString;
 try {

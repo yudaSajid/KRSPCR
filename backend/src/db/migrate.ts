@@ -5,9 +5,9 @@ export async function runMigration() {
   try {
     console.log('🚀 Memulai migrasi database PostgreSQL...');
 
-    await client.query('BEGIN');
-
-    await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+    try {
+      await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+    } catch {}
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS students (
@@ -61,17 +61,17 @@ export async function runMigration() {
       CREATE INDEX IF NOT EXISTS idx_enrollments_comp_sort ON enrollments(academic_year DESC, semester, status, id DESC) WHERE deleted_at IS NULL;
     `);
 
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_students_nim_trgm ON students USING gin (nim gin_trgm_ops);
-      CREATE INDEX IF NOT EXISTS idx_students_name_trgm ON students USING gin (name gin_trgm_ops);
-      CREATE INDEX IF NOT EXISTS idx_courses_code_trgm ON courses USING gin (code gin_trgm_ops);
-      CREATE INDEX IF NOT EXISTS idx_courses_name_trgm ON courses USING gin (name gin_trgm_ops);
-    `);
+    try {
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_students_nim_trgm ON students USING gin (nim gin_trgm_ops);
+        CREATE INDEX IF NOT EXISTS idx_students_name_trgm ON students USING gin (name gin_trgm_ops);
+        CREATE INDEX IF NOT EXISTS idx_courses_code_trgm ON courses USING gin (code gin_trgm_ops);
+        CREATE INDEX IF NOT EXISTS idx_courses_name_trgm ON courses USING gin (name gin_trgm_ops);
+      `);
+    } catch {}
 
-    await client.query('COMMIT');
     console.log('✅ Migrasi database selesai dengan sukses!');
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('❌ Gagal menjalankan migrasi:', error);
     process.exit(1);
   } finally {
