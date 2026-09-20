@@ -11,13 +11,15 @@
    - **PostgreSQL Index Optimization**: B-Tree composite indexes untuk filter/sorting dan Trigram (`pg_trgm`) GIN index untuk live search responsif.
    - **High-Performance Seeder**: Menghasilkan 5.000.000 data dalam waktu singkat (< 2 menit) menggunakan teknik bulk generator PostgreSQL.
    - **Streaming CSV Export**: Ekspor seluruh 5 juta baris data menggunakan Database Cursor Stream (`pg-query-stream`) langsung ke HTTP response (memory footprint backend konstan < 50MB tanpa risiko *Out-of-Memory*).
-2. **Transaksi Atomik 3 Tabel**:
+2. **Transaksi Atomik 3 Tabel (Mendukung Multi-Course per Submit)**:
    - Create KRS mengelola 3 entitas relasional (`students`, `courses`, `enrollments`) dalam 1 transaksi atomik (`BEGIN ... COMMIT / ROLLBACK`).
-   - Mencegah data yatim atau setengah masuk jika terjadi kegagalan/duplikasi.
+   - Mendukung pengajuan beberapa mata kuliah sekaligus dalam satu kali submit (merefleksikan proses riil KRS mahasiswa), menghasilkan 1 mahasiswa (upsert), N mata kuliah (upsert/lookup ID), dan N baris `enrollments`.
+   - Dilengkapi validasi batas SKS semester (maksimal 24 SKS), proteksi duplikasi intra-payload, serta rollback penuh otomatis jika terjadi pelanggaran constraint atau kegagalan sistem.
 3. **Validasi Ketat di Frontend & Backend**:
-   - Aturan validasi format NIM (8-12 digit angka tanpa spasi), Course Code (`[A-Z]{2,4}[0-9]{3}`), SKS (1-6), Tahun Ajaran (`YYYY/YYYY`), enum semester & status.
-   - Feedback pesan error visual per-field di UI dan penolakan HTTP 4xx di backend.
+   - Aturan validasi format NIM (8-12 digit angka tanpa spasi), Course Code (`[A-Z]{2,4}[0-9]{3}`), SKS (1-6), Tahun Ajaran (`YYYY/YYYY`), enum semester & status, batas akumulasi SKS $\le 24$.
+   - Feedback pesan error visual per-field di UI dan penolakan HTTP 4xx di backend (400 untuk validasi/FK, 409 untuk konflik unik).
 4. **Interaktivitas UI/UX Mahasiswa Modern**:
+   - Multi-course Create Modal dengan katalog mata kuliah (live search) dan input dinamis mata kuliah baru (+ SKS counter & live summary preview).
    - Server-side pagination & sorting per kolom.
    - Real-time search dengan **debounce 350ms**.
    - Quick Filter (Status & Semester).
@@ -144,6 +146,27 @@ Seeder menggunakan generator set di sisi PostgreSQL (`generate_series`) yang die
 Sesuai instruksi Bagian 4.6, Advanced Query Builder menyediakan switcher logika:
 - **AND**: Seluruh kondisi filter wajib dipenuhi (`WHERE condition1 AND condition2`).
 - **OR**: Data akan ditampilkan jika memenuhi minimal salah satu kondisi filter (`WHERE (condition1 OR condition2)`).
+
+### 5. Keputusan Desain: Multi Mata Kuliah per Submit dalam 1 Transaksi Atomik
+- **Latar Belakang Bisnis**: Proses bisnis KRS pada institusi akademik adalah mahasiswa mengambil beberapa mata kuliah sekaligus (misal 18-24 SKS) dalam satu semester.
+- **Implementasi Atomik**: Endpoint `POST /api/enrollments` menerima 1 mahasiswa + array N mata kuliah (baik referensi ID existing dari katalog maupun pendefinisian mata kuliah baru).
+- **Jaminan ACID**: Dijalankan dalam 1 blok `BEGIN ... COMMIT`. Tahapan transaksi:
+  1. Upsert mahasiswa (by `nim`).
+  2. Resolusi mata kuliah (upsert jika baru, verifikasi jika ber-ID).
+  3. Validasi batas SKS per semester ($\le 24$ SKS) dan penolakan duplikasi mata kuliah dalam payload.
+  4. Validasi pencegahan duplikasi data aktif di database.
+  5. Bulk insert seluruh pasangan `enrollments`.
+  Jika terjadi 1 saja kegagalan (misal kode MK tidak valid atau bentrok jadwal), seluruh transaksi di-`ROLLBACK` otomatis tanpa meninggalkan data parsial.
+- **Backward Compatibility**: Payload legacy single-course (`{ student, course, enrollment }`) ditransformasikan secara transparan menjadi array 1 item sehingga skenario pengujian TS-02 tetap lulus 100%.
+
+### 6. Keputusan Desain: Update per Baris vs Drop/Add Mata Kuliah
+- Entitas `enrollments` memiliki granularitas per baris untuk setiap pasangan mahasiswa dan mata kuliah.
+- Form Edit menangani perubahan data per enrollment (seperti revisi status: `DRAFT` $\to$ `SUBMITTED` $\to$ `APPROVED`, atau koreksi data).
+- Untuk perubahan mata kuliah massal dalam semester yang sedang berjalan, sistem menggunakan praktik standar KRS yaitu pembatalan mata kuliah (Soft Delete) dan penambahan mata kuliah baru (Create Multi-Course) demi menjaga audit trail historis.
+
+### 7. Keputusan Desain: Soft Delete & Partial Index Optimization
+- Digunakan kolom `deleted_at TIMESTAMPTZ` untuk melindungi integritas referensial dan riwayat akademik.
+- Seluruh index query list dan composite sort menggunakan **PostgreSQL Partial Indexes** dengan klausa `WHERE deleted_at IS NULL`. Hal ini memastikan pencarian pada 5.000.000 data hanya menelusuri baris aktif tanpa overhead dari baris yang telah dihapus.
 
 ---
 

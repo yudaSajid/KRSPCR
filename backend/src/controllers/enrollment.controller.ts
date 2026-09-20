@@ -3,9 +3,7 @@ import { EnrollmentService } from '../services/enrollment.service';
 import { createEnrollmentSchema, updateEnrollmentSchema } from '../schemas/enrollment.schema';
 
 export class EnrollmentController {
-  /**
-   * CREATE: Insert ke 3 tabel secara atomik
-   */
+
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
       const parseResult = createEnrollmentSchema.safeParse(req.body);
@@ -18,19 +16,29 @@ export class EnrollmentController {
       }
 
       const result = await EnrollmentService.createEnrollmentAtomic(parseResult.data);
+      const totalCourses = result.totalCourses || 1;
       return res.status(201).json({
         success: true,
-        message: 'KRS berhasil ditambahkan ke 3 entitas (Students, Courses, Enrollments)',
+        message: `KRS berhasil ditambahkan (${totalCourses} mata kuliah) ke 3 entitas (Students, Courses, Enrollments) dalam 1 transaksi atomik`,
         data: result
       });
     } catch (error: any) {
+      if (error.code === '23505') {
+        return res.status(409).json({
+          success: false,
+          message: 'Konflik data unik: Mahasiswa sudah terdaftar pada mata kuliah yang sama di tahun ajaran & semester ini.'
+        });
+      }
+      if (error.code === '23503') {
+        return res.status(400).json({
+          success: false,
+          message: 'Pelanggaran relasi data (Foreign Key): ID Mahasiswa atau Mata Kuliah tidak valid.'
+        });
+      }
       next(error);
     }
   }
 
-  /**
-   * READ: Server-side pagination, sorting, quick filter, live search, & advanced filter
-   */
   static async list(req: Request, res: Response, next: NextFunction) {
     try {
       const {
@@ -62,9 +70,6 @@ export class EnrollmentController {
     }
   }
 
-  /**
-   * UPDATE: Perbarui enrollment dan relasi
-   */
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
@@ -88,9 +93,6 @@ export class EnrollmentController {
     }
   }
 
-  /**
-   * DELETE: Soft delete enrollment
-   */
   static async delete(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
@@ -104,9 +106,6 @@ export class EnrollmentController {
     }
   }
 
-  /**
-   * EXPORT: Streaming CSV untuk dataset besar (5 juta baris) tanpa kehabisan memori
-   */
   static async exportCsv(req: Request, res: Response, next: NextFunction) {
     try {
       const {
@@ -122,7 +121,6 @@ export class EnrollmentController {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Transfer-Encoding', 'chunked');
 
-      // Tulis header CSV
       res.write('ID,NIM,Nama Mahasiswa,Kode MK,Nama MK,SKS,Semester,Tahun Ajaran,Status,Dibuat Pada\r\n');
 
       const escapeCsv = (str: any) => {
@@ -154,7 +152,6 @@ export class EnrollmentController {
               escapeCsv(row.created_at)
             ].join(',') + '\r\n';
 
-            // Backpressure check
             if (!res.write(line)) {
               stream.pause();
               res.once('drain', () => stream.resume());
@@ -182,6 +179,41 @@ export class EnrollmentController {
           });
         }
       );
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async listCourses(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { search, limit } = req.query;
+      const courses = await EnrollmentService.getCourses(
+        search as string,
+        limit ? Number(limit) : 50
+      );
+      return res.status(200).json({
+        success: true,
+        data: courses
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async getStudentByNim(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { nim } = req.params;
+      const student = await EnrollmentService.getStudentByNim(nim);
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: `Mahasiswa dengan NIM ${nim} tidak ditemukan`
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        data: student
+      });
     } catch (error: any) {
       next(error);
     }

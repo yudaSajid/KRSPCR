@@ -1,4 +1,4 @@
-import { CreateKrsForm, AdvancedFilterPayload } from '../types';
+import { CreateBatchKrsForm, CreateKrsForm, AdvancedFilterPayload, CourseCatalogItem } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -34,23 +34,40 @@ export const api = {
     return res.json();
   },
 
-  async createEnrollment(form: CreateKrsForm) {
+  async createEnrollment(form: CreateBatchKrsForm | CreateKrsForm) {
+    let coursesPayload: any[] = [];
+
+    if ('courses' in form && Array.isArray(form.courses) && form.courses.length > 0) {
+      coursesPayload = form.courses.map((c) => {
+        if (c.id && !c.isCustom) {
+          return { id: c.id };
+        }
+        return {
+          code: c.code.trim().toUpperCase(),
+          name: c.name.trim(),
+          credits: Number(c.credits)
+        };
+      });
+    } else if ('courseCode' in form && form.courseCode) {
+      coursesPayload = [
+        {
+          code: form.courseCode.trim().toUpperCase(),
+          name: form.courseName?.trim() || '',
+          credits: Number(form.credits || 3)
+        }
+      ];
+    }
+
     const payload = {
       student: {
-        nim: form.nim,
-        name: form.studentName,
-        email: form.studentEmail
+        nim: form.nim.trim(),
+        name: form.studentName.trim(),
+        email: form.studentEmail.trim()
       },
-      course: {
-        code: form.courseCode,
-        name: form.courseName,
-        credits: Number(form.credits)
-      },
-      enrollment: {
-        academic_year: form.academicYear,
-        semester: form.semester,
-        status: form.status
-      }
+      academic_year: form.academicYear,
+      semester: form.semester,
+      status: form.status,
+      courses: coursesPayload
     };
 
     const res = await fetch(`${API_BASE_URL}/enrollments`, {
@@ -90,6 +107,32 @@ export const api = {
       throw new Error(data.message || 'Gagal menghapus KRS');
     }
     return data;
+  },
+
+  async getCourses(search?: string): Promise<{ success: boolean; data: CourseCatalogItem[] }> {
+    const url = new URL(`${API_BASE_URL}/courses`);
+    if (search && search.trim()) {
+      url.searchParams.set('search', search.trim());
+    }
+    url.searchParams.set('limit', '100');
+
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      throw new Error('Gagal memuat katalog mata kuliah');
+    }
+    return res.json();
+  },
+
+  async getStudentByNim(nim: string) {
+    const res = await fetch(`${API_BASE_URL}/students/${encodeURIComponent(nim.trim())}`);
+    if (res.status === 404) {
+      return null;
+    }
+    if (!res.ok) {
+      throw new Error('Gagal memeriksa data mahasiswa');
+    }
+    const data = await res.json();
+    return data.data || null;
   },
 
   getExportUrl(params: FetchParams) {

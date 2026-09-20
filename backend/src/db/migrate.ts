@@ -7,10 +7,8 @@ export async function runMigration() {
 
     await client.query('BEGIN');
 
-    // Extension untuk pencarian LIKE/ILIKE cepat pada jutaan baris data
     await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
 
-    // 1. Tabel Students
     await client.query(`
       CREATE TABLE IF NOT EXISTS students (
         id BIGSERIAL PRIMARY KEY,
@@ -22,7 +20,6 @@ export async function runMigration() {
       );
     `);
 
-    // 2. Tabel Courses
     await client.query(`
       CREATE TABLE IF NOT EXISTS courses (
         id BIGSERIAL PRIMARY KEY,
@@ -34,7 +31,6 @@ export async function runMigration() {
       );
     `);
 
-    // 3. Tabel Enrollments (KRS)
     await client.query(`
       CREATE TABLE IF NOT EXISTS enrollments (
         id BIGSERIAL PRIMARY KEY,
@@ -49,14 +45,12 @@ export async function runMigration() {
       );
     `);
 
-    // Constraint Unik: Satu mahasiswa tidak boleh mengambil MK yang sama di tahun ajaran & semester yang sama (jika tidak di-soft-delete)
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_enrollments_student_course_year_sem 
       ON enrollments (student_id, course_id, academic_year, semester) 
       WHERE deleted_at IS NULL;
     `);
 
-    // Indeks untuk Foreign Keys & Soft Delete
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON enrollments(student_id) WHERE deleted_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON enrollments(course_id) WHERE deleted_at IS NULL;
@@ -67,7 +61,6 @@ export async function runMigration() {
       CREATE INDEX IF NOT EXISTS idx_enrollments_comp_sort ON enrollments(academic_year DESC, semester, status, id DESC) WHERE deleted_at IS NULL;
     `);
 
-    // Indeks Trigram (GIN) untuk Live Search Realtime pada jutaan baris data
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_students_nim_trgm ON students USING gin (nim gin_trgm_ops);
       CREATE INDEX IF NOT EXISTS idx_students_name_trgm ON students USING gin (name gin_trgm_ops);

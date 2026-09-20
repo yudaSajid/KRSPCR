@@ -31,14 +31,40 @@ export interface AdvancedFilterPayload {
   conditions: FilterCondition[];
 }
 
+export interface CourseCatalogItem {
+  id: number;
+  code: string;
+  name: string;
+  credits: number;
+}
+
+export interface SelectedCourseItem {
+  id?: number;
+  code: string;
+  name: string;
+  credits: number;
+  isCustom?: boolean;
+}
+
+export interface CreateBatchKrsForm {
+  nim: string;
+  studentName: string;
+  studentEmail: string;
+  academicYear: string;
+  semester: 'GANJIL' | 'GENAP';
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  courses: SelectedCourseItem[];
+}
+
 export interface CreateKrsForm {
   nim: string;
   studentName: string;
   studentEmail: string;
-  courseCode: string;
-  courseName: string;
-  credits: number;
+  courseCode?: string;
+  courseName?: string;
+  credits?: number;
   academicYear: string;
   semester: 'GANJIL' | 'GENAP';
   status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  courses?: SelectedCourseItem[];
 }

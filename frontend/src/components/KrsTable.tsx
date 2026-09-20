@@ -26,10 +26,10 @@ const STATUS_CONFIG: Record<string, { bg: string; border: string; text: string; 
     label: 'Draft' 
   },
   SUBMITTED: { 
-    bg: 'bg-blue-50', 
-    border: 'border-blue-200', 
-    text: 'text-blue-700', 
-    dot: 'bg-blue-500 animate-pulse', 
+    bg: 'bg-sky-50', 
+    border: 'border-sky-200', 
+    text: 'text-sky-700', 
+    dot: 'bg-sky-500 animate-pulse', 
     label: 'Diajukan' 
   },
   APPROVED: { 
@@ -68,7 +68,7 @@ export const KrsTable: React.FC<KrsTableProps> = ({
   onEdit,
   onDelete
 }) => {
-  // Parse sort string, format: col1:asc,col2:desc
+
   const activeSorts = React.useMemo(() => {
     const map: Record<string, 'ASC' | 'DESC'> = {};
     if (!sort) return map;
@@ -119,15 +119,15 @@ export const KrsTable: React.FC<KrsTableProps> = ({
 
   return (
     <div className="bg-white rounded-3xl shadow-xs border border-slate-200/90 overflow-hidden flex flex-col transition-all">
-      {/* Table Container */}
+      
       <div className="overflow-x-auto min-h-[420px] relative">
         {loading && (
           <div className="absolute inset-0 bg-white/75 backdrop-blur-[1.5px] z-20 flex flex-col items-center justify-center animate-in fade-in duration-150">
             <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center shadow-md shadow-sky-100 mb-3">
               <Loader2 className="w-6 h-6 text-sky-600 animate-spin" />
             </div>
-            <p className="text-xs font-bold text-slate-800">Menyaring 5.000.000 data...</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Memproses query server-side berkinerja tinggi</p>
+            <p className="text-xs font-bold text-slate-800">Loading...</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Memproses query server-side</p>
           </div>
         )}
 
@@ -222,86 +222,83 @@ export const KrsTable: React.FC<KrsTableProps> = ({
                 const initial = row.student_name.replace(/Mahasiswa /i, '').charAt(0) || 'M';
 
                 return (
-                  <tr key={row.id} className="hover:bg-sky-50/40 transition-colors group">
-                    {/* NIM */}
-                    <td className="py-3.5 px-4">
-                      <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100/80 px-2 py-1 rounded-lg border border-slate-200/60">
+                  <tr key={row.id} className="hover:bg-sky-50/50 transition-colors group">
+                    
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className="inline-flex items-center font-mono text-xs font-bold text-slate-700 bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-xs">
                         {row.student_nim}
                       </span>
                     </td>
 
-                    {/* Nama Mahasiswa with Initial Chip */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border ${avatarColor}`}>
-                          {initial}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900 leading-tight group-hover:text-sky-700 transition-colors">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 leading-tight group-hover:text-sky-700 transition-colors truncate">
                             {row.student_name}
                           </p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{row.student_email}</p>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">{row.student_email}</p>
                         </div>
                       </div>
                     </td>
 
-                    {/* Mata Kuliah */}
                     <td className="py-3.5 px-4">
-                      <div className="flex items-start gap-2">
-                        <span className="font-mono text-[11px] font-extrabold text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-md shrink-0">
-                          {row.course_code}
-                        </span>
-                        <span className="text-xs font-medium text-slate-700 leading-snug">
-                          {row.course_name}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 text-xs sm:text-sm leading-tight group-hover:text-sky-700 transition-colors">
+                            {row.course_name}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="font-mono text-[10.5px] font-extrabold text-sky-800 bg-sky-50 border border-sky-200/90 px-2 py-0.5 rounded-md shadow-xs tracking-wider">
+                              {row.course_code}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </td>
 
-                    {/* SKS */}
-                    <td className="py-3.5 px-3 text-center">
-                      <span className="inline-block text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-                        {row.credits}
+                    <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                      <span className="inline-flex items-center justify-center min-w-[28px] px-2.5 py-0.5 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200/90 rounded-lg shadow-2xs">
+                        {row.credits} SKS
                       </span>
                     </td>
 
-                    {/* Semester */}
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border shadow-xs ${
                         row.semester === 'GANJIL' 
                           ? 'bg-indigo-50 text-indigo-700 border-indigo-200' 
                           : 'bg-teal-50 text-teal-700 border-teal-200'
                       }`}>
-                        {row.semester}
+                        <span className={`w-1.5 h-1.5 rounded-full ${row.semester === 'GANJIL' ? 'bg-indigo-500' : 'bg-teal-500'}`}></span>
+                        <span>{row.semester}</span>
                       </span>
                     </td>
 
-                    {/* Tahun Ajaran */}
-                    <td className="py-3.5 px-4 text-xs font-medium text-slate-600">
-                      {row.academic_year}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className="font-mono text-xs font-medium text-slate-600 bg-slate-100/70 border border-slate-200/60 px-2 py-1 rounded-lg">
+                        {row.academic_year}
+                      </span>
                     </td>
 
-                    {/* Status Pill */}
-                    <td className="py-3.5 px-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${badge.bg} ${badge.border} ${badge.text}`}>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-xs ${badge.bg} ${badge.border} ${badge.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`}></span>
                         <span>{badge.label}</span>
                       </span>
                     </td>
 
-                    {/* Aksi */}
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center space-x-1">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => onEdit(row)}
                           title="Ubah Data KRS"
-                          className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all border border-transparent hover:border-sky-200 shadow-xs"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => onDelete(row.id)}
                           title="Hapus Data (Soft Delete)"
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-200 shadow-xs"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -315,7 +312,6 @@ export const KrsTable: React.FC<KrsTableProps> = ({
         </table>
       </div>
 
-      {/* Pagination Footer */}
       <div className="bg-slate-50/90 px-5 py-3.5 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
         <div className="flex flex-wrap items-center gap-4">
           <div>
@@ -339,7 +335,6 @@ export const KrsTable: React.FC<KrsTableProps> = ({
           </div>
         </div>
 
-        {/* Navigation Buttons */}
         <div className="flex items-center space-x-1.5">
           <button
             onClick={() => onPageChange(1)}

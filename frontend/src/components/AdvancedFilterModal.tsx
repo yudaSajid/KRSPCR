@@ -3,7 +3,8 @@ import {
   X, Filter, Check, RotateCcw, User, BookOpen, Calendar, 
   Sparkles, CheckCircle2, SlidersHorizontal, Info, ChevronRight 
 } from 'lucide-react';
-import { AdvancedFilterPayload, FilterCondition } from '../types';
+import { AdvancedFilterPayload, FilterCondition, CourseCatalogItem } from '../types';
+import { api } from '../services/api';
 
 interface AdvancedFilterModalProps {
   isOpen: boolean;
@@ -28,8 +29,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   initialFilter
 }) => {
   const [logic, setLogic] = useState<'AND' | 'OR'>('AND');
-  
-  // Field-based states for ultra-intuitive UI
+
   const [nim, setNim] = useState('');
   const [nimMode, setNimMode] = useState<'contains' | 'startsWith' | 'equal'>('contains');
   const [studentName, setStudentName] = useState('');
@@ -39,6 +39,23 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [semester, setSemester] = useState<'ALL' | 'GANJIL' | 'GENAP'>('ALL');
   const [academicYear, setAcademicYear] = useState<string>('ALL');
+
+  const [catalogCourses, setCatalogCourses] = useState<CourseCatalogItem[]>([]);
+  const [selectedCourseKey, setSelectedCourseKey] = useState<string>('ALL');
+
+  useEffect(() => {
+    if (isOpen) {
+      api.getCourses()
+        .then((res) => {
+          if (res.success && Array.isArray(res.data)) {
+            setCatalogCourses(res.data);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load courses catalog for filter:', err);
+        });
+    }
+  }, [isOpen]);
 
   const handleResetFields = () => {
     setLogic('AND');
@@ -51,14 +68,14 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
     setSelectedStatuses([]);
     setSemester('ALL');
     setAcademicYear('ALL');
+    setSelectedCourseKey('ALL');
   };
 
-  // Load existing filter if any
   useEffect(() => {
     if (initialFilter) {
       setLogic(initialFilter.logic || 'AND');
       const conds = initialFilter.conditions || [];
-      
+
       conds.forEach((c) => {
         if (c.column === 'student_nim') {
           setNim(String(c.value));
@@ -67,6 +84,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
           setStudentName(String(c.value));
         } else if (c.column === 'course_code') {
           setCourseCode(String(c.value));
+          setSelectedCourseKey(String(c.value).toUpperCase());
         } else if (c.column === 'course_name') {
           setCourseName(String(c.value));
         } else if (c.column === 'credits') {
@@ -88,6 +106,20 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
     }
   }, [initialFilter, isOpen]);
 
+  const handleCourseSelect = (code: string) => {
+    setSelectedCourseKey(code);
+    if (code === 'ALL') {
+      setCourseCode('');
+      setCourseName('');
+    } else {
+      const found = catalogCourses.find((c) => c.code.toUpperCase() === code.toUpperCase());
+      if (found) {
+        setCourseCode(found.code);
+        setCourseName(found.name);
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   const toggleStatus = (val: string) => {
@@ -98,7 +130,6 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
     }
   };
 
-  // Hitung jumlah kriteria yang aktif
   const getActiveFilterCount = (): number => {
     let count = 0;
     if (nim.trim()) count++;
@@ -163,45 +194,46 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
-        {/* Header Modal */}
-        <div className="bg-gradient-to-r from-sky-600 via-indigo-600 to-sky-700 px-6 py-4.5 text-white flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white ring-1 ring-white/20">
+        
+        <div className="bg-slate-900 px-7 sm:px-8 py-4 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30 shrink-0">
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold">Filter Lanjutan (Smart Search)</h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">Filter Lanjutan</h2>
                 {activeCount > 0 && (
-                  <span className="text-[11px] font-extrabold bg-amber-400 text-slate-900 px-2.5 py-0.5 rounded-full shadow-xs">
-                    {activeCount} Kriteria Aktif
+                  <span className="text-[11px] font-bold bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full shadow-xs">
+                    {activeCount} Aktif
                   </span>
                 )}
               </div>
-              <p className="text-xs text-sky-100">Cari data KRS dengan kombinasi kriteria yang spesifik dan mudah</p>
+              <p className="text-xs text-slate-400 mt-0.5">Kustomisasi parameter penyaringan data</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-white/80 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors"
+            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors"
+            title="Tutup Modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
-          {/* 1. Pemilihan Logika Kombinasi (AND / OR) yang Jelas & Ramah */}
+          
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-                Cara Menggabungkan Filter:
+                <Filter className="w-3.5 h-3.5 text-sky-600" />
+                Mode Filter:
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Option AND */}
+              
               <div
                 onClick={() => setLogic('AND')}
                 className={`cursor-pointer rounded-2xl p-3.5 border-2 transition-all flex items-start gap-3 ${
@@ -223,7 +255,6 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                 </div>
               </div>
 
-              {/* Option OR */}
               <div
                 onClick={() => setLogic('OR')}
                 className={`cursor-pointer rounded-2xl p-3.5 border-2 transition-all flex items-start gap-3 ${
@@ -247,7 +278,6 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
             </div>
           </div>
 
-          {/* 2. Kartu Mahasiswa */}
           <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
               <User className="w-4 h-4 text-sky-600" />
@@ -302,14 +332,41 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
             </div>
           </div>
 
-          {/* 3. Kartu Mata Kuliah */}
-          <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-              <BookOpen className="w-4 h-4 text-indigo-600" />
-              <span>Data Mata Kuliah</span>
+          <div className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200/80 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <BookOpen className="w-4 h-4 text-indigo-600" />
+                <span>Data Mata Kuliah</span>
+              </div>
+              {catalogCourses.length > 0 && (
+                <span className="text-[10.5px] font-semibold text-slate-500">
+                  {catalogCourses.length} MK Tersedia di Katalog
+                </span>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+                Pilih Mata Kuliah (Katalog)
+              </label>
+              <select
+                value={selectedCourseKey}
+                onChange={(e) => handleCourseSelect(e.target.value)}
+                className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+              >
+                <option value="ALL">-- Semua Mata Kuliah (atau Ketik Manual di Bawah) --</option>
+                {catalogCourses.map((c) => (
+                  <option key={c.id} value={c.code}>
+                    [{c.code}] {c.name} ({c.credits} SKS)
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10.5px] text-slate-500 mt-1.5">
+                Pilih mata kuliah untuk mengisi otomatis kode dan nama MK di bawah, atau masukkan kata kunci pencarian secara mandiri.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Kode MK
@@ -318,8 +375,13 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                   type="text"
                   placeholder="Contoh: IF101, CS..."
                   value={courseCode}
-                  onChange={(e) => setCourseCode(e.target.value.toUpperCase())}
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-200 uppercase font-mono"
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setCourseCode(val);
+                    const match = catalogCourses.find((c) => c.code.toUpperCase() === val);
+                    setSelectedCourseKey(match ? match.code : 'ALL');
+                  }}
+                  className="w-full text-xs sm:text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-200 uppercase font-mono"
                 />
               </div>
 
@@ -331,22 +393,28 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                   type="text"
                   placeholder="Contoh: Algoritma, Basis Data..."
                   value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCourseName(val);
+                    const match = catalogCourses.find((c) => c.name.toLowerCase() === val.toLowerCase());
+                    if (match) {
+                      setSelectedCourseKey(match.code);
+                    }
+                  }}
+                  className="w-full text-xs sm:text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-200"
                 />
               </div>
             </div>
 
-            {/* Seleksi SKS */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+            <div className="pt-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
                 Bobot SKS:
               </label>
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setSelectedCredits(null)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                     selectedCredits === null
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -359,7 +427,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                     key={cr}
                     type="button"
                     onClick={() => setSelectedCredits(selectedCredits === cr ? null : cr)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                       selectedCredits === cr
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -372,14 +440,12 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
             </div>
           </div>
 
-          {/* 4. Kartu Periode Akademik & Status KRS */}
           <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
               <Calendar className="w-4 h-4 text-emerald-600" />
               <span>Status & Periode Akademik</span>
             </div>
 
-            {/* Status Chips */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
                 Status KRS (Bisa pilih lebih dari satu):
@@ -446,22 +512,21 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="px-7 sm:px-8 py-2 sm:py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 shadow-inner">
           <button
             type="button"
             onClick={handleClearAll}
-            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center gap-2 border border-transparent hover:border-rose-200"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Semua Filter</span>
           </button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-3.5 w-full sm:w-auto justify-end py-1">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors"
+              className="px-5 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 border border-slate-300 rounded-xl transition-all shadow-2xs"
             >
               Batal
             </button>
@@ -469,7 +534,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
             <button
               type="button"
               onClick={handleApply}
-              className="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 rounded-xl shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-2"
+              className="px-6 sm:px-7 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Terapkan Filter {activeCount > 0 ? `(${activeCount})` : ''}</span>

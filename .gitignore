@@ -1,6 +1,12 @@
 node_modules
 dist
 .env
+.env.*
 *.log
 .DS_Store
 pgdata
+
+# AI files & prompts
+update.md
+walkthrough.md
+implementation_plan.md

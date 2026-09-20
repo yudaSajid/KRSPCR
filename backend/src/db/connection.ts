@@ -9,16 +9,13 @@ const isCloud = process.env.DATABASE_SSL === 'true' ||
   rawConnectionString.includes('neon.tech') || 
   rawConnectionString.includes('supabase.co');
 
-// Bersihkan sslmode dan channel_binding dari URL string agar tidak memicu deprecation warning di node-pg
 let cleanConnectionString = rawConnectionString;
 try {
   const urlObj = new URL(rawConnectionString);
   urlObj.searchParams.delete('sslmode');
   urlObj.searchParams.delete('channel_binding');
   cleanConnectionString = urlObj.toString();
-} catch {
-  // fallback jika format URL non-standard
-}
+} catch {}
 
 export const pool = new Pool({
   connectionString: cleanConnectionString,
