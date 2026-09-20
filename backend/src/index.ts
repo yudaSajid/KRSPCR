@@ -59,8 +59,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`\n======================================================`);
-    console.log(`🚀 KRS Backend Server running on http://localhost:${PORT}`);
-    console.log(`📚 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`KRS Backend Server running on http://localhost:${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/api/health`);
     console.log(`======================================================\n`);
   });
 }

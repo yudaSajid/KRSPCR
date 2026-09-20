@@ -40,6 +40,19 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   const [semester, setSemester] = useState<'ALL' | 'GANJIL' | 'GENAP'>('ALL');
   const [academicYear, setAcademicYear] = useState<string>('ALL');
 
+  const handleResetFields = () => {
+    setLogic('AND');
+    setNim('');
+    setNimMode('contains');
+    setStudentName('');
+    setCourseCode('');
+    setCourseName('');
+    setSelectedCredits(null);
+    setSelectedStatuses([]);
+    setSemester('ALL');
+    setAcademicYear('ALL');
+  };
+
   // Load existing filter if any
   useEffect(() => {
     if (initialFilter) {
@@ -76,19 +89,6 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   }, [initialFilter, isOpen]);
 
   if (!isOpen) return null;
-
-  const handleResetFields = () => {
-    setLogic('AND');
-    setNim('');
-    setNimMode('contains');
-    setStudentName('');
-    setCourseCode('');
-    setCourseName('');
-    setSelectedCredits(null);
-    setSelectedStatuses([]);
-    setSemester('ALL');
-    setAcademicYear('ALL');
-  };
 
   const toggleStatus = (val: string) => {
     if (selectedStatuses.includes(val)) {
