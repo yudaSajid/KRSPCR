@@ -1,7 +1,6 @@
-# Academic KRS Management System (5 Million Records Scale)
+# Academic KRS Management System 
 
-An enterprise-grade Single Page Application (SPA) for managing university Course Registration Systems (KRS) engineered to handle high-throughput workloads and massive datasets (**5,000,000+ enrollment records**).
-
+An enterprise-grade Single Page Application (SPA) for managing university Course Registration Systems (KRS) engineered to handle high-throughput workloads and massive datasets.
 ---
 
 ## 🚀 Key Highlights & Engineering Features
