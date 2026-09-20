@@ -88,7 +88,7 @@ export async function runSeeder(targetEnrollments = 5000000) {
     for (let b = 0; b < totalBatches; b++) {
       const currentBatchCount = Math.min(batchSize, needed - (b * batchSize));
       const batchStart = Date.now();
-      const offsetMultiplier = currentCount + (b * batchSize);
+      const currentOffset = 5000000 + (b * batchSize);
 
       await client.query(`
         INSERT INTO enrollments (
@@ -106,14 +106,15 @@ export async function runSeeder(targetEnrollments = 5000000) {
           NOW() AS updated_at
         FROM (
           SELECT 
-            (${offsetMultiplier} + i - 1)::int AS x,
-            ((${offsetMultiplier} + i - 1) % 50000)::int AS student_seq_id,
-            ((((${offsetMultiplier} + i - 1) / 50000)::int) / 10)::int AS term,
+            (${currentOffset} + i - 1)::int AS x,
+            ((${currentOffset} + i - 1) % 50000)::int AS student_seq_id,
+            ((((${currentOffset} + i - 1) / 50000)::int / 10)::int % 10)::int AS term,
             (
               (
-                ((${offsetMultiplier} + i - 1) % 50000) * 37 
-                + ((((${offsetMultiplier} + i - 1) / 50000)::int) / 10) * 10 
-                + (((${offsetMultiplier} + i - 1) / 50000)::int % 10)
+                ((${currentOffset} + i - 1) % 50000) * 37 
+                + ((((${currentOffset} + i - 1) / 50000)::int / 10)::int % 10) * 10 
+                + (((${currentOffset} + i - 1) / 50000)::int % 10)
+                + 17
               ) % 500
             )::int AS course_seq_id
           FROM generate_series(1, ${currentBatchCount}) i
