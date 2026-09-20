@@ -3,16 +3,29 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/academic_krs';
+const rawConnectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/academic_krs';
+
+const isCloud = process.env.DATABASE_SSL === 'true' || 
+  rawConnectionString.includes('neon.tech') || 
+  rawConnectionString.includes('supabase.co');
+
+// Bersihkan sslmode dan channel_binding dari URL string agar tidak memicu deprecation warning di node-pg
+let cleanConnectionString = rawConnectionString;
+try {
+  const urlObj = new URL(rawConnectionString);
+  urlObj.searchParams.delete('sslmode');
+  urlObj.searchParams.delete('channel_binding');
+  cleanConnectionString = urlObj.toString();
+} catch {
+  // fallback jika format URL non-standard
+}
 
 export const pool = new Pool({
-  connectionString,
+  connectionString: cleanConnectionString,
   max: 25,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
-  ssl: process.env.DATABASE_SSL === 'true' || connectionString.includes('neon.tech') || connectionString.includes('supabase.co')
-    ? { rejectUnauthorized: false }
-    : undefined
+  ssl: isCloud ? { rejectUnauthorized: false } : undefined
 });
 
 pool.on('error', (err) => {
